@@ -13,13 +13,17 @@ player = bus.get("com.shamansanchez.plent")
 cmd = sys.argv[1]
 
 if cmd == "play":
-    player.play_song()
+    player.play()
 elif cmd == "pause":
-    player.pause_song()
+    player.pause()
 elif cmd == "playpause":
     if player.state == "playing":
-        player.pause_song()
+        player.pause()
     else:
-        player.play_song()
+        player.play()
 elif cmd == "next":
-    player.skip_song()
+    player.skip()
+elif cmd == "previous":
+    player.previous()
+elif cmd == "shuffle":
+    player.toggle_shuffle()

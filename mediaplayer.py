@@ -40,7 +40,7 @@ except:
     status = "none"
 
 try:
-    shuffle = 'alltracks'
+    shuffle = player.shuffle
 except:
     shuffle = "none"
 
