@@ -6,6 +6,9 @@ from pydbus import SessionBus
 
 import gi
 import gmusicapi
+import json
+import os
+import requests
 import yaml
 
 gi.require_version('Gst', '1.0')
@@ -42,7 +45,6 @@ class Player(object):
         self.dbus = SessionBus()
 
         self.playbin = Gst.ElementFactory.make("playbin", "player")
-        self.playbin.set_property('buffer-size', 104857600)
 
         self.bus = self.playbin.get_bus()
         self.bus.add_signal_watch()
@@ -58,10 +60,16 @@ class Player(object):
 
         self.client = gmusicapi.Mobileclient()
 
+        self.cache_dir = os.path.expanduser(self.conf['cache_dir'])
+        os.makedirs(self.cache_dir, exist_ok=True)
+
         if not self.client.is_authenticated():
             self.client.login(self.conf['email'], self.conf['pass'], self.conf['deviceid'])
 
         self.songs = self.client.get_all_songs()
+
+        with open("{}/metadata.json".format(self.cache_dir), 'w') as fd:
+            json.dump(self.songs, fd)
 
         for song in self.songs:
             if song['albumArtist'] == "":
@@ -113,15 +121,28 @@ class Player(object):
         print("EOS")
         self.playbin.set_state(Gst.State.READY)
 
+    def _cache_song(self, song):
+        r = requests.get(self.client.get_stream_url(song['id']), stream=True)
+        filename = "{}/{}.mp3".format(self.cache_dir,song['id'])
+
+        if not os.path.exists(filename):
+            with open(filename, 'wb') as fd:
+                for chunk in r.iter_content(chunk_size=128):
+                    fd.write(chunk)
+
+        return "file://{}".format(filename)
+
     def _play_song(self, song):
         self.playbin.set_state(Gst.State.READY)
-        self.playbin.set_property('uri', self.client.get_stream_url(song['id']))
+        url = self._cache_song(song)
+        self.playbin.set_property('uri', url)
         self.current_song = song
         self.playbin.set_state(Gst.State.PLAYING)
 
     def next_song(self, playbin):
         song = self.songs[self.current_song["next"]]
-        self.playbin.set_property('uri', self.client.get_stream_url(song['id']))
+        url = self._cache_song(song)
+        self.playbin.set_property('uri', url)
         self.current_song = song
 
     def skip(self):
