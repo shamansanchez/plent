@@ -1,18 +1,18 @@
 #!/usr/bin/python
 
+import json
+import os
 import random
 from operator import itemgetter
-from pydbus import SessionBus
 
 import gi
 import gmusicapi
-import json
-import os
 import requests
 import yaml
+from gi.repository import GObject, Gst
+from pydbus import SessionBus
 
 gi.require_version('Gst', '1.0')
-from gi.repository import GObject, Gst
 
 class Player(object):
     """
