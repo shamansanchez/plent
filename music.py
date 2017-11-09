@@ -114,30 +114,22 @@ class Player(object):
         self.playbin.set_state(Gst.State.READY)
 
     def _play_song(self, song):
-        print("{} - {}".format(song['title'], song['artist']))
         self.playbin.set_state(Gst.State.READY)
         self.playbin.set_property('uri', self.client.get_stream_url(song['id']))
         self.current_song = song
         self.playbin.set_state(Gst.State.PLAYING)
 
-    def _get_next_song(self, num_songs=1):
-        if self.shuffle == "alltracks":
-            song = random.choice(self.songs)
-        else:
-            song = self.songs[(self.current_song["num"] + num_songs) % len(self.songs)]
-        return song
-
     def next_song(self, playbin):
-        song = self._get_next_song()
+        song = self.songs[self.current_song["next"]]
         self.playbin.set_property('uri', self.client.get_stream_url(song['id']))
         self.current_song = song
 
     def skip(self):
-        song = self._get_next_song()
+        song = self.songs[self.current_song["next"]]
         self._play_song(song)
 
     def previous(self):
-        song = self._get_next_song(num_songs=-1)
+        song = self.songs[self.current_song["prev"]]
         self._play_song(song)
 
     def pause(self):
@@ -152,8 +144,10 @@ class Player(object):
 
     def toggle_shuffle(self):
         if self.shuffle == "alltracks":
+            self._order_songs()
             self.shuffle = "ordered"
         else:
+            self._shuffle_songs()
             self.shuffle = "alltracks"
 
     def print_song_list(self):
@@ -162,7 +156,28 @@ class Player(object):
             print(str(s) + " " + str(song['trackNumber'])  + ". " + song['title'] + " - " + song['artist'] + " - " + song['album']+ " - " + str(song['year']))
             s = s + 1
 
+    def _shuffle_songs(self):
+        order = list(range(len(self.songs)))
+        random.shuffle(order)
+
+        first = order.pop()
+        song = self.songs[first]
+        while order:
+            num = song["num"]
+            song["next"] = order.pop()
+            song = self.songs[song["next"]]
+            song["prev"] = num
+
+        song["next"] = first
+        self.songs[first]["prev"] = song["num"]
+
+    def _order_songs(self):
+        for song in self.songs:
+            song["prev"] = (song["num"] - 1) % len(self.songs)
+            song["next"] = (song["num"] + 1) % len(self.songs)
+
     def main(self):
+        self._shuffle_songs()
         song = random.choice(self.songs)
         self._play_song(song)
 
