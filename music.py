@@ -9,10 +9,10 @@ import gi
 import gmusicapi
 import requests
 import yaml
-from gi.repository import GObject, Gst
 from pydbus import SessionBus
 
 gi.require_version('Gst', '1.0')
+from gi.repository import GObject, Gst
 
 class Player(object):
     """
@@ -122,10 +122,10 @@ class Player(object):
         self.playbin.set_state(Gst.State.READY)
 
     def _cache_song(self, song):
-        r = requests.get(self.client.get_stream_url(song['id']), stream=True)
         filename = "{}/{}.mp3".format(self.cache_dir,song['id'])
 
         if not os.path.exists(filename):
+            r = requests.get(self.client.get_stream_url(song['id']), stream=True)
             with open(filename, 'wb') as fd:
                 for chunk in r.iter_content(chunk_size=128):
                     fd.write(chunk)
