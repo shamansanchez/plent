@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import hashlib
 import json
 import os
 import random
@@ -107,9 +108,8 @@ class Player(object):
 
     @property
     def album_art(self):
-        if "albumArtRef" in self.current_song and self.current_song["albumArtRef"]:
-            return self.current_song["albumArtRef"][0]["url"]
-        return ""
+        url = self._get_album_art(self.current_song)
+        return self._get_cached_album_art(url)
 
     @property
     def state(self):
@@ -128,6 +128,11 @@ class Player(object):
         print("EOS")
         self.playbin.set_state(Gst.State.READY)
 
+    def _get_album_art(self, song):
+        if "albumArtRef" in song and song["albumArtRef"]:
+            return song["albumArtRef"][0]["url"]
+        return ""
+
     def _cache_song(self, song):
         filename = "{}/{}.mp3".format(self.cache_dir,song['id'])
 
@@ -137,7 +142,21 @@ class Player(object):
                 for chunk in r.iter_content(chunk_size=128):
                     fd.write(chunk)
 
+        album_art_url = self._get_album_art(song)
+        if album_art_url != "":
+            art_filename = self._get_cached_album_art(album_art_url)
+            if not os.path.exists(art_filename):
+                r = requests.get(album_art_url, stream=True)
+                with open(art_filename, 'wb') as fd:
+                    for chunk in r.iter_content(chunk_size=128):
+                        fd.write(chunk)
+
         return "file://{}".format(filename)
+
+    def _get_cached_album_art(self, url):
+        md5 = hashlib.md5(url.encode()).hexdigest()
+        filename = "{}/{}.jpg".format(self.cache_dir,md5)
+        return filename
 
     def _play_song(self, song):
         self.playbin.set_state(Gst.State.READY)
