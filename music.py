@@ -32,6 +32,7 @@ class Player(object):
             <property name="album" type="s" access="read"/>
             <property name="current_time" type="t" access="read"/>
             <property name="total_time" type="t" access="read"/>
+            <property name="album_art" type="s" access="read"/>
             <property name="state" type="s" access="read"/>
             <property name="shuffle" type="s" access="read"/>
         </interface>
@@ -103,6 +104,12 @@ class Player(object):
     def total_time(self):
         ret, duration = self.playbin.query_duration(Gst.Format.TIME)
         return duration
+
+    @property
+    def album_art(self):
+        if "albumArtRef" in self.current_song and self.current_song["albumArtRef"]:
+            return self.current_song["albumArtRef"][0]["url"]
+        return ""
 
     @property
     def state(self):
