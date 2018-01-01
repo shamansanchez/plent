@@ -7,7 +7,8 @@ import random
 from operator import itemgetter
 
 import gi
-import gmusicapi
+import requests
+
 import yaml
 from pydbus import SessionBus
 
@@ -32,7 +33,6 @@ class Player(object):
             <property name="album" type="s" access="read"/>
             <property name="current_time" type="t" access="read"/>
             <property name="total_time" type="t" access="read"/>
-            <property name="album_art" type="s" access="read"/>
             <property name="state" type="s" access="read"/>
             <property name="shuffle" type="s" access="read"/>
         </interface>
@@ -46,7 +46,6 @@ class Player(object):
         self.dbus = SessionBus()
 
         self.playbin = Gst.ElementFactory.make("playbin", "player")
-        self.playbin.set_property('buffer-size', 104857600)
 
         self.bus = self.playbin.get_bus()
         self.bus.add_signal_watch()
@@ -60,23 +59,8 @@ class Player(object):
         with open("conf.yml", 'r') as y:
             self.conf = yaml.load(y)
 
-        self.client = gmusicapi.Mobileclient()
-
-        if not self.client.is_authenticated():
-            self.client.login(self.conf['email'], self.conf['pass'], self.conf['deviceid'])
-
-        self.songs = self.client.get_all_songs()
-
-        for song in self.songs:
-            if song['albumArtist'] == "":
-                song['albumArtist'] = song['artist']
-
-        self.songs.sort(key=itemgetter('albumArtist', 'year', 'album', 'discNumber', 'trackNumber'))
-
-        s = 0
-        for song in self.songs:
-            song['num'] = s
-            s += 1
+        req = requests.get("{}/{}".format(self.conf['url'], self.conf['metadata']))
+        self.songs = req.json()
 
     @property
     def title(self):
@@ -101,11 +85,6 @@ class Player(object):
         return duration
 
     @property
-    def album_art(self):
-        url = self._get_album_art(self.current_song)
-        return self._get_cached_album_art(url)
-
-    @property
     def state(self):
         ret, state, pending = self.playbin.get_state(10)
 
@@ -124,13 +103,15 @@ class Player(object):
 
     def _play_song(self, song):
         self.playbin.set_state(Gst.State.READY)
-        self.playbin.set_property('uri', self.client.get_stream_url(song['id']))
+        path = "{}/{}".format(self.conf['url'], song['path'])
+        self.playbin.set_property('uri', path)
         self.current_song = song
         self.playbin.set_state(Gst.State.PLAYING)
 
     def next_song(self, playbin):
         song = self.songs[self.current_song["next"]]
-        self.playbin.set_property('uri', self.client.get_stream_url(song['id']))
+        path = "{}/{}".format(self.conf['url'], song['path'])
+        self.playbin.set_property('uri', path)
         self.current_song = song
 
     def skip(self):
